@@ -26,7 +26,8 @@ pip install -r requirements.txt
 
 Generate polygons
 ```
-python shape_it.py -o testing exampleForRanges.csv
+python shape_it.py -o output examplePoints.csv
+python shape_it.py -o testing --lon lon_dec --lat lat_dec exampleForRanges.csv
 ```
 
 When done, deactivate from ```virtualenv``` 
@@ -52,7 +53,8 @@ pip install -r requirements.txt
 
 Generate polygons
 ```
-python shape_it.py -o testing exampleForRanges.csv
+python shape_it.py -o output examplePoints.csv
+python shape_it.py -o testing --lon lon_dec --lat lat_dec exampleForRanges.csv 
 ```
 
 
