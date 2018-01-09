@@ -194,6 +194,53 @@ def generate_shapefile_point(sciname, lat, lng):
     logging.info("Generated point shapefile")
 
 
+def process_file_with_species_location(csvfile, spcol, lngcol, latcol):
+    global IDX_PROGRESS
+
+    logging.info("Processing file: %s" % csvfile)
+    print("Processing file: %s" % csvfile)
+
+    snlist = {}
+
+    with open(csvfile) as f:
+        reader = csv.DictReader(f, skipinitialspace=True)
+        for row in reader:
+            sciname = row[spcol]
+            coords = [float(row[latcol]), float(row[lngcol])]
+
+            if not snlist.has_key(sciname):
+                snlist[sciname] = []
+
+            snlist[sciname].append(coords)
+
+    IDX_PROGRESS = 0
+    for key in snlist:
+
+        IDX_PROGRESS += 1
+        update_progress(IDX_PROGRESS)
+
+        coords = snlist[key]
+        logging.debug("---------------------")
+
+        # Sort the coordinates so it's easier to match them
+        scoords = sorted(coords, key=lambda crd: crd[1])
+        scoords = sorted(scoords, key=lambda crd: crd[0])
+
+        logging.info('Processing species: %s', key)
+        if len(coords) > 1:
+            output_geoms = get_multi_polygons(scoords)
+        else:
+            output_geoms = get_single_polygon(scoords)
+
+        write_shapefile(key.replace(' ', '_'), output_geoms)
+
+        logging.debug("---------------------\n")
+
+    # clean up the progress bar
+    sys.stdout.write("\n")
+    print("Completed")
+
+
 def process_file_with_latlon(csvfile, lngcol, latcol):
     global IDX_PROGRESS
 
@@ -229,6 +276,18 @@ def process_file_with_latlon(csvfile, lngcol, latcol):
     print("Completed.\nCheck shape_it.log for additional details")
 
 
+def get_single_polygon(coords):
+    global IDX_PROGRESS
+
+    logging.info("Processing %d points", len(coords))
+
+    polygons = [{
+        'polygon': MultiPoint([coords[0]]).convex_hull,
+        'coords': [coords[0]]
+    }]
+    return polygons
+
+
 def get_multi_polygons(coords):
     global IDX_PROGRESS
 
@@ -255,7 +314,7 @@ def get_multi_polygons(coords):
         polygons[0]['coords'].append(c2)
     else:
         polygons[0]['polygon'] = MultiPoint([c1]).convex_hull
-        polygons[0]['coords'].append([c1])
+        polygons[0]['coords'].append(c1)
         polygons.append({'polygon': MultiPoint([c2]).convex_hull, 'coords': [c2]})
 
     # 2. Starting with the 3rd coord, check which polygon it falls in and add
@@ -311,7 +370,7 @@ def check_and_merge_polygons(polygons):
 
 
 def write_shapefile(lyrname, features):
-    logging.info("Processing layer: %s ", lyrname)
+    logging.info("Writing layer: %s ", lyrname)
 
     output_path = "%s/%s/" % (output, lyrname)
     output_file = "%s/%s.shp" % (output_path, lyrname)
@@ -347,17 +406,17 @@ if __name__ == '__main__':
     parser.add_argument("input", metavar="input", help="Input CSV file")
 
     # optional arguments
-    parser.add_argument("-o", "--output", dest="output", default=output,
-                        help="Output directory. (default: ./output/)")
-    parser.add_argument("-g", "--group", dest="group", type=int, default=2,
-                        help="Group column, e.g. scientific name. Default: 3.")
+    parser.add_argument("-g", "--group", dest="group", default="scientificname",
+                        help="Group column, e.g. scientific name. Default: scientificname.")
     parser.add_argument("-lon", "--longitude", dest="lon", default='longitude',
                         help="Longitude column name, e.g. longitude. Default: longitude.")
     parser.add_argument("-lat", "--latitude", dest="lat", default='latitude',
                         help="Latitude column name, e.g. latitude. Default: latitude.")
+    parser.add_argument("-o", "--output", dest="output", default=output,
+                        help="Output directory. (default: ./output/)")
 
     args = parser.parse_args()
     output = args.output
     folder_checks_out = check_output_directory()
     if folder_checks_out:
-        process_file_with_latlon(args.input, args.lon, args.lat)
+        process_file_with_species_location(args.input, args.group, args.lon, args.lat)
