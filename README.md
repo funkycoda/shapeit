@@ -27,7 +27,7 @@ pip install -r requirements.txt
 Generate polygons
 ```
 python shape_it.py -o output examplePoints.csv
-python shape_it.py -o testing --lon lon_dec --lat lat_dec exampleForRanges.csv
+python shape_it.py -g MasterTax_SciName -lat lat_dec -lon lon_dec -o testing exampleForRanges.csv
 ```
 
 When done, deactivate from ```virtualenv``` 
@@ -54,7 +54,7 @@ pip install -r requirements.txt
 Generate polygons
 ```
 python shape_it.py -o output examplePoints.csv
-python shape_it.py -o testing --lon lon_dec --lat lat_dec exampleForRanges.csv 
+python shape_it.py -g MasterTax_SciName -lat lat_dec -lon lon_dec -o testing exampleForRanges.csv
 ```
 
 
