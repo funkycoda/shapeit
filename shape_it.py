@@ -69,131 +69,6 @@ def check_output_directory():
     return False
 
 
-def process_file_with_species_column(csvfile, colno):
-    logging.info("Processing file: %s" % csvfile)
-    print("Processing file: %s" % csvfile)
-
-    snlist = {}
-
-    with open(csvfile) as f:
-        reader = csv.DictReader(f, skipinitialspace=True)
-        # print(reader.fieldnames)
-        for row in reader:
-            sciname = row['MasterTax_SciName']
-            coords = [float(row['lat_dec']), float(row['lon_dec'])]
-
-            if not snlist.has_key(sciname):
-                snlist[sciname] = []
-
-            snlist[sciname].append(coords)
-
-    iprg = 0
-    for key in snlist:
-
-        iprg += 1
-        update_progress(iprg)
-
-        coords = snlist[key]
-        logging.debug("---------------------")
-
-        if len(coords) > 2:
-            generate_shapefile_polygon(key, coords)
-        else:
-            generate_shapefile_multipoint(key, coords)
-
-        logging.debug("---------------------\n")
-
-    # clean up the progress bar
-    sys.stdout.write("\n")
-    print("Completed")
-
-
-def generate_shapefile_polygon(sciname, coords):
-    logging.info("Processing species: %s ", sciname)
-
-    output_path = "%s/%s/" % (output, sciname)
-    output_file = "%s/%s.shp" % (output_path, sciname)
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
-
-    tcoords = []
-    for coord in coords:
-        x, y = transform(p_in, p_out, float(coord[1]), float(coord[0]))
-        tcoords.append([x, y])
-
-    polygon = Polygon(tcoords)
-    buffered = polygon.buffer(20000.0)
-    polygon_out = stran(project, buffered)
-
-    schema = { 'geometry': 'Polygon', 'properties': { 'name': 'str' } }
-    with fiona.open(output_file, 'w', crs=proj_4326, driver='ESRI Shapefile', schema=schema) as out:
-
-        out.write({
-            'properties': {
-                'name': sciname
-            },
-            'geometry': mapping(polygon_out)
-        })
-
-    logging.info("Generated polygon shapefile")
-
-
-def generate_shapefile_multipoint(sciname, coords):
-    logging.info("Processing species: %s ", sciname)
-
-    output_path = "%s/%s/" % (output, sciname)
-    output_file = "%s/%s.shp" % (output_path, sciname)
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
-
-    tcoords = []
-    for coord in coords:
-        x, y = transform(p_in, p_out, float(coord[1]), float(coord[0]))
-        point = Point(x, y)
-        buffered = point.buffer(20000.0)
-        point_out = stran(project, buffered)
-        tcoords.append(point_out)
-
-    schema = { 'geometry': 'Polygon', 'properties': { 'name': 'str' } }
-    with fiona.open(output_file, 'w', crs=proj_4326, driver='ESRI Shapefile', schema=schema) as out:
-
-        for poly in tcoords:        
-            out.write({
-                'properties': {
-                    'name': sciname
-                },
-                'geometry': mapping(poly)
-            })
-
-    logging.info("Generated point shapefile")
-
-
-def generate_shapefile_point(sciname, lat, lng):
-    logging.info("Processing species: %s ", sciname)
-
-    output_path = "%s/%s/" % (output, sciname)
-    output_file = "%s/%s.shp" % (output_path, sciname)
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
-
-    x, y = transform(p_in, p_out, lat, lng)
-    point = Point(x, y)
-    buffered = point.buffer(20000.0)
-    point_out = stran(project, buffered)
-
-    schema = { 'geometry': 'Polygon', 'properties': { 'name': 'str' } }
-    with fiona.open(output_file, 'w', crs=proj_4326, driver='ESRI Shapefile', schema=schema) as out:
-
-        out.write({
-            'properties': {
-                'name': sciname
-            },
-            'geometry': mapping(point_out)
-        })
-
-    logging.info("Generated point shapefile")
-
-
 def process_file_with_species_location(csvfile, spcol, lngcol, latcol):
     global IDX_PROGRESS
 
@@ -206,7 +81,7 @@ def process_file_with_species_location(csvfile, spcol, lngcol, latcol):
         reader = csv.DictReader(f, skipinitialspace=True)
         for row in reader:
             sciname = row[spcol]
-            coords = [float(row[latcol]), float(row[lngcol])]
+            coords = [float(row[lngcol]), float(row[latcol])]
 
             if not snlist.has_key(sciname):
                 snlist[sciname] = []
@@ -406,8 +281,8 @@ if __name__ == '__main__':
     parser.add_argument("input", metavar="input", help="Input CSV file")
 
     # optional arguments
-    parser.add_argument("-g", "--group", dest="group", default="scientificname",
-                        help="Group column, e.g. scientific name. Default: scientificname.")
+    parser.add_argument("-g", "--group", dest="group", default=None,
+                        help="Group column, e.g. scientific name. Default: None.")
     parser.add_argument("-lon", "--longitude", dest="lon", default='longitude',
                         help="Longitude column name, e.g. longitude. Default: longitude.")
     parser.add_argument("-lat", "--latitude", dest="lat", default='latitude',
@@ -417,6 +292,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     output = args.output
-    folder_checks_out = check_output_directory()
-    if folder_checks_out:
-        process_file_with_species_location(args.input, args.group, args.lon, args.lat)
+    if check_output_directory():
+        if args.group:
+            process_file_with_species_location(args.input, args.group, args.lon, args.lat)
+        else:
+            process_file_with_latlon(args.input, args.lon, args.lat)
